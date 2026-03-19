@@ -76,6 +76,8 @@ All analysis runs through a configurable LLM with vision support — OpenAI GPT-
 - [Docker Compose](https://docs.docker.com/compose/install/) v2+
 - An API key for at least one LLM provider with vision support (or a local Ollama instance)
 
+> **No Manus account required.** VehicleGuard uses local email/password authentication by default (`AUTH_MODE=local`).
+
 ### 1. Clone and configure
 
 ```bash
@@ -85,7 +87,7 @@ cd vehicleguard-frigate-extension
 # Copy the example environment file
 cp .env.example .env
 
-# Edit .env with your values (see Configuration section below)
+# Optional: edit .env to change admin credentials or LLM provider
 nano .env
 ```
 
@@ -101,7 +103,19 @@ This starts:
 - **MinIO** (S3-compatible storage) on `http://localhost:9000` (console: `http://localhost:9001`)
 - **Adminer** (DB admin UI) on `http://localhost:8080`
 
-### 3. Initialize MinIO bucket
+### 3. Create the admin user
+
+```bash
+docker compose exec app node seed-admin.mjs
+```
+
+This creates the initial admin user:
+- **Email**: `admin@vehicleguard.local`
+- **Password**: `admin123`
+
+> Change these defaults in `.env` via `ADMIN_EMAIL` and `ADMIN_PASSWORD` before running the seed.
+
+### 4. Initialize MinIO bucket
 
 After starting, create the storage bucket:
 
@@ -119,9 +133,9 @@ docker compose exec minio mc mb local/vehicleguard
 docker compose exec minio mc anonymous set public local/vehicleguard
 ```
 
-### 4. Open the app
+### 5. Open the app
 
-Navigate to `http://localhost:3000` and sign in.
+Navigate to `http://localhost:3000` and sign in with `admin@vehicleguard.local` / `admin123`.
 
 ---
 
@@ -274,7 +288,7 @@ For Apple Silicon Macs, Ollama with `llava:13b` runs efficiently on the Neural E
 | Database | MySQL 8, Drizzle ORM |
 | Storage | S3-compatible (MinIO for local, AWS S3 for production) |
 | AI | OpenAI GPT-4o / Anthropic Claude / Google Gemini / Ollama |
-| Auth | Manus OAuth 2.0 |
+| Auth | Local email/password + JWT (standalone) or Manus OAuth 2.0 |
 | Container | Docker, Docker Compose |
 
 ---
