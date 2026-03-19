@@ -14,8 +14,8 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@9
+# Install pnpm (must match packageManager in package.json: pnpm@10.x)
+RUN npm install -g pnpm@10
 
 # Copy package manifests + patches (pnpm requires patches before install)
 COPY package.json pnpm-lock.yaml ./
@@ -35,8 +35,8 @@ FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Install pnpm (needed for db:push at startup)
-RUN npm install -g pnpm@9
+# Install pnpm (must match packageManager in package.json: pnpm@10.x)
+RUN npm install -g pnpm@10
 
 # Copy package manifests + patches and install only production deps
 COPY package.json pnpm-lock.yaml ./
