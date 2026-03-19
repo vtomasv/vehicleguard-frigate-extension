@@ -1,0 +1,127 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VehicleGuard — Docker Compose for local development
+#
+# Services:
+#   app      → Node.js 22 server (Express + tRPC + Vite)
+#   db       → MySQL 8 database
+#   adminer  → Web-based DB admin UI (optional, port 8080)
+#
+# Quick start:
+#   1. cp .env.example .env
+#   2. Edit .env with your API keys
+#   3. docker compose up -d
+#   4. Open http://localhost:3000
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Application ─────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vehicleguard-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: mysql://vehicleguard:${DB_PASSWORD:-vehicleguard123}@db:3306/vehicleguard
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-a-long-random-string}
+      # Manus OAuth (required for authentication)
+      VITE_APP_ID: ${VITE_APP_ID:-}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-https://api.manus.im}
+      VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-https://manus.im}
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
+      OWNER_NAME: ${OWNER_NAME:-admin}
+      # Manus Forge LLM (default, can be overridden via UI)
+      BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL:-}
+      BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY:-}
+      VITE_FRONTEND_FORGE_API_KEY: ${VITE_FRONTEND_FORGE_API_KEY:-}
+      VITE_FRONTEND_FORGE_API_URL: ${VITE_FRONTEND_FORGE_API_URL:-}
+      # S3 storage (MinIO or AWS)
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-vehicleguard}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - app_uploads:/app/uploads
+    networks:
+      - vehicleguard-net
+
+  # ── MySQL Database ───────────────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: vehicleguard-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: vehicleguard
+      MYSQL_USER: vehicleguard
+      MYSQL_PASSWORD: ${DB_PASSWORD:-vehicleguard123}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "vehicleguard", "-pvehicleguard123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - vehicleguard-net
+
+  # ── Adminer (DB Admin UI) ────────────────────────────────────────────────────
+  adminer:
+    image: adminer:4
+    container_name: vehicleguard-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      - db
+    networks:
+      - vehicleguard-net
+
+  # ── MinIO (S3-compatible local storage) ─────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: vehicleguard-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO Console
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - vehicleguard-net
+
+volumes:
+  db_data:
+    driver: local
+  minio_data:
+    driver: local
+  app_uploads:
+    driver: local
+
+networks:
+  vehicleguard-net:
+    driver: bridge
