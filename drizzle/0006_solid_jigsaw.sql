@@ -1,0 +1,20 @@
+CREATE TABLE `llm_config` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`provider` enum('openai','anthropic','gemini','ollama','openai_compatible') NOT NULL DEFAULT 'openai',
+	`apiKey` text,
+	`baseUrl` varchar(512),
+	`presenceModel` varchar(128) NOT NULL DEFAULT 'gpt-4o-mini',
+	`analysisModel` varchar(128) NOT NULL DEFAULT 'gpt-4o',
+	`temperature` float NOT NULL DEFAULT 0.1,
+	`maxTokens` int NOT NULL DEFAULT 2048,
+	`topP` float,
+	`topK` int,
+	`presenceTemperature` float NOT NULL DEFAULT 0,
+	`isActive` boolean NOT NULL DEFAULT true,
+	`lastTestedAt` timestamp,
+	`lastTestResult` enum('ok','error','pending'),
+	`lastTestError` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `llm_config_id` PRIMARY KEY(`id`)
+);

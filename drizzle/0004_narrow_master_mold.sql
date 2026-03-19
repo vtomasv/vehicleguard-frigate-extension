@@ -1,0 +1,1 @@
+ALTER TABLE `access_events` MODIFY COLUMN `direction` enum('right','left','forward','backward','forward-right','forward-left','backward-right','backward-left','unknown') NOT NULL DEFAULT 'unknown';

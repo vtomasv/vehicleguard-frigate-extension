@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1773882741353,
+      "tag": "0000_friendly_stephen_strange",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1773882821024,
+      "tag": "0001_overjoyed_justice",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773884166777,
+      "tag": "0002_narrow_ezekiel_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1773885700532,
+      "tag": "0003_bizarre_skaar",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1773886760716,
+      "tag": "0004_narrow_master_mold",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1773887876343,
+      "tag": "0005_same_bloodaxe",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1773933667906,
+      "tag": "0006_solid_jigsaw",
+      "breakpoints": true
+    }
+  ]
+}

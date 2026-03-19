@@ -33,5 +33,3 @@ Thumbs.db
 # Docker
 .docker/
 
-# Drizzle migrations (keep the SQL files, ignore generated meta)
-drizzle/meta/
