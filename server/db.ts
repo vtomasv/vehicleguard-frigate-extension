@@ -74,6 +74,35 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createLocalUser(data: { email: string; name: string; passwordHash: string; role?: "user" | "admin" }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const openId = `local:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  await db.insert(users).values({
+    openId,
+    email: data.email,
+    name: data.name,
+    passwordHash: data.passwordHash,
+    loginMethod: "local",
+    role: data.role ?? "user",
+    lastSignedIn: new Date(),
+  });
+  return getUserByEmail(data.email);
+}
+
+export async function updateUserPassword(openId: string, passwordHash: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(users).set({ passwordHash }).where(eq(users.openId, openId));
+}
+
 // ─── Cameras ─────────────────────────────────────────────────────────────────
 
 export async function initDefaultCameras() {

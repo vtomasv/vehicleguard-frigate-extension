@@ -50,12 +50,12 @@ export function registerLocalAuthRoutes(app: Express) {
     try {
       const user = await db.getUserByEmail(email as string);
       if (!user || !user.passwordHash) {
-        res.status(401).json({ error: "Invalid email or password" });
+        res.status(401).json({ error: "Correo o contraseña incorrectos" });
         return;
       }
       const valid = await bcrypt.compare(password as string, user.passwordHash);
       if (!valid) {
-        res.status(401).json({ error: "Invalid email or password" });
+        res.status(401).json({ error: "Correo o contraseña incorrectos" });
         return;
       }
       // Update lastSignedIn
@@ -67,7 +67,7 @@ export function registerLocalAuthRoutes(app: Express) {
       res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
     } catch (error) {
       console.error("[LocalAuth] Login failed", error);
-      res.status(500).json({ error: "Login failed" });
+      res.status(500).json({ error: "Error al iniciar sesión" });
     }
   });
 
@@ -93,6 +93,51 @@ export function registerLocalAuthRoutes(app: Express) {
       return;
     }
     res.json({ id: user.id, email: user.email, name: user.name, role: user.role, openId: user.openId });
+  });
+
+  // POST /api/auth/change-password
+  // Body: { currentPassword: string, newPassword: string }
+  // Requires valid session cookie.
+  app.post("/api/auth/change-password", async (req: Request, res: Response) => {
+    const cookies = parseCookies(req.headers.cookie);
+    const sessionCookie = cookies.get(COOKIE_NAME);
+    const session = await verifyLocalSession(sessionCookie);
+    if (!session) {
+      res.status(401).json({ error: "No autenticado" });
+      return;
+    }
+
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: "Se requieren contraseña actual y nueva contraseña" });
+      return;
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      res.status(400).json({ error: "La nueva contraseña debe tener al menos 8 caracteres" });
+      return;
+    }
+
+    try {
+      const user = await db.getUserByOpenId(session.openId);
+      if (!user || !user.passwordHash) {
+        res.status(404).json({ error: "Usuario no encontrado" });
+        return;
+      }
+
+      const valid = await bcrypt.compare(currentPassword as string, user.passwordHash);
+      if (!valid) {
+        res.status(401).json({ error: "La contraseña actual es incorrecta" });
+        return;
+      }
+
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await db.updateUserPassword(user.openId, newHash);
+
+      res.json({ success: true, message: "Contraseña actualizada correctamente" });
+    } catch (error) {
+      console.error("[LocalAuth] Change password failed", error);
+      res.status(500).json({ error: "Error al cambiar la contraseña" });
+    }
   });
 }
 

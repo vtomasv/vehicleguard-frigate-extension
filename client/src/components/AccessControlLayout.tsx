@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
   Settings2,
+  UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -27,6 +28,7 @@ const navItems = [
   { href: "/records", label: "Registros", icon: FileText },
   { href: "/analytics", label: "Analítica", icon: BarChart3 },
   { href: "/settings/api", label: "APIs y Modelos", icon: Settings2 },
+  { href: "/settings/profile", label: "Mi Perfil", icon: UserCircle },
 ];
 
 interface Props {

@@ -11,6 +11,7 @@ import AccessRecords from "./pages/AccessRecords";
 import Analytics from "./pages/Analytics";
 import AnalysisReport from "./pages/AnalysisReport";
 import LLMSettings from "./pages/LLMSettings";
+import UserProfile from "./pages/UserProfile";
 
 function Router() {
   return (
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/analytics" component={Analytics} />
       <Route path="/reports/:eventId" component={AnalysisReport} />
       <Route path="/settings/api" component={LLMSettings} />
+      <Route path="/settings/profile" component={UserProfile} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
