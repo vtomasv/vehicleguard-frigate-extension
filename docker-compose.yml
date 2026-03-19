@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ─────────────────────────────────────────────────────────────────────────────
 # VehicleGuard — Docker Compose for local development
 #
@@ -49,6 +47,8 @@ services:
       S3_REGION: ${S3_REGION:-us-east-1}
     depends_on:
       db:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     volumes:
       - app_uploads:/app/uploads
