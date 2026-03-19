@@ -17,8 +17,9 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm@9
 
-# Copy only package manifests first (better layer caching)
+# Copy package manifests + patches (pnpm requires patches before install)
 COPY package.json pnpm-lock.yaml ./
+COPY patches/ ./patches/
 
 # Install all dependencies (dev + prod)
 RUN pnpm install --frozen-lockfile
@@ -37,8 +38,9 @@ WORKDIR /app
 # Install pnpm (needed for db:push at startup)
 RUN npm install -g pnpm@9
 
-# Copy package manifests and install only production deps
+# Copy package manifests + patches and install only production deps
 COPY package.json pnpm-lock.yaml ./
+COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built artifacts from builder stage
