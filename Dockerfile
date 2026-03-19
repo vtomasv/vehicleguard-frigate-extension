@@ -3,10 +3,9 @@
 # Stage 1: Build (installs all deps, compiles TypeScript + Vite)
 # Stage 2: Runtime (only production deps + built artifacts)
 #
-# Structure: monorepo with single package.json at root
-# Build output:
-#   - client/dist/  → Vite frontend bundle
-#   - dist/         → esbuild server bundle (dist/index.js)
+# Build output layout (all under dist/):
+#   dist/index.js      → esbuild server bundle
+#   dist/public/       → Vite frontend bundle (served as static files)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
@@ -14,28 +13,33 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm (must match packageManager in package.json: pnpm@10.x)
+# Install pnpm matching packageManager field in package.json (pnpm@10.x)
 RUN npm install -g pnpm@10
 
 # Copy package manifests + patches (pnpm requires patches before install)
 COPY package.json pnpm-lock.yaml ./
 COPY patches/ ./patches/
 
-# Install all dependencies (dev + prod)
+# Install all dependencies (dev + prod needed for build)
 RUN pnpm install --frozen-lockfile
 
 # Copy full source
 COPY . .
 
-# Build frontend (Vite → client/dist/) + server (esbuild → dist/index.js)
+# Build:
+#   1. vite build  → dist/public/  (frontend static bundle)
+#   2. esbuild     → dist/index.js (server bundle)
 RUN pnpm build
+
+# Verify build output exists
+RUN ls -la dist/ && ls -la dist/public/
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Install pnpm (must match packageManager in package.json: pnpm@10.x)
+# Install pnpm (needed for db:push at startup)
 RUN npm install -g pnpm@10
 
 # Copy package manifests + patches and install only production deps
@@ -43,9 +47,8 @@ COPY package.json pnpm-lock.yaml ./
 COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile --prod
 
-# Copy built artifacts from builder stage
+# Copy entire dist/ from builder (contains server + frontend)
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/client/dist ./client/dist
 
 # Copy drizzle schema + migrations (needed for db:push at startup)
 COPY --from=builder /app/drizzle ./drizzle
