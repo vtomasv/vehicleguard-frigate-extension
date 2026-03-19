@@ -39,7 +39,7 @@ FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Install pnpm (needed for db:push at startup)
+# Install pnpm (needed for production install)
 RUN npm install -g pnpm@10
 
 # Copy package manifests + patches and install only production deps
@@ -50,9 +50,11 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy entire dist/ from builder (contains server + frontend)
 COPY --from=builder /app/dist ./dist
 
-# Copy drizzle schema + migrations (needed for db:push at startup)
+# Copy drizzle migrations folder (SQL files needed by migrate.mjs at startup)
 COPY --from=builder /app/drizzle ./drizzle
-COPY drizzle.config.ts ./
+
+# Copy migration script (uses drizzle-orm/migrator, no drizzle-kit needed)
+COPY migrate.mjs ./
 
 # Copy shared types used at runtime
 COPY --from=builder /app/shared ./shared
@@ -64,5 +66,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
   CMD wget -qO- http://localhost:${PORT:-3000}/api/health || exit 1
 
-# Run DB migrations then start the server
-CMD ["sh", "-c", "pnpm db:push && node dist/index.js"]
+# Run DB migrations (via drizzle-orm migrator) then start the server
+CMD ["sh", "-c", "node migrate.mjs && node dist/index.js"]
