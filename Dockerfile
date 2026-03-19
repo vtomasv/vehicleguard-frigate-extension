@@ -31,8 +31,10 @@ COPY . .
 #   2. esbuild     → dist/index.js (server bundle)
 RUN pnpm build
 
-# Verify build output exists
-RUN ls -la dist/ && ls -la dist/public/
+# Verify build output exists (server bundle is index.prod.js, frontend is in dist/public/)
+RUN ls -la dist/ && ls -la dist/public/ && \
+    test -f dist/index.prod.js || (echo 'ERROR: dist/index.prod.js not found!' && exit 1) && \
+    test -d dist/public || (echo 'ERROR: dist/public/ not found!' && exit 1)
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
@@ -67,4 +69,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
   CMD wget -qO- http://localhost:${PORT:-3000}/api/health || exit 1
 
 # Run DB migrations (via drizzle-orm migrator) then start the server
-CMD ["sh", "-c", "node migrate.mjs && node dist/index.js"]
+# Note: esbuild names the output after the entry file: index.prod.ts -> index.prod.js
+CMD ["sh", "-c", "node migrate.mjs && node dist/index.prod.js"]
