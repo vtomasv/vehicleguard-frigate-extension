@@ -1,9 +1,120 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Shield, Camera, Lock, ChevronRight, Loader2 } from "lucide-react";
+import { Shield, Camera, Lock, ChevronRight, Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { trpc } from "@/lib/trpc";
+
+// Detect if running in local auth mode (Docker standalone)
+const IS_LOCAL_AUTH = import.meta.env.VITE_AUTH_MODE === "local";
+
+function LocalLoginForm({ onSuccess }: { onSuccess: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const utils = trpc.useUtils();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Error al iniciar sesión");
+        return;
+      }
+      // Invalidate the auth.me query so the layout re-checks auth
+      await utils.auth.me.invalidate();
+      onSuccess();
+    } catch {
+      setError("Error de conexión. Verifica que el servidor esté activo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {error && (
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+          <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+          <p className="text-sm text-destructive">{error}</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-sm font-medium text-foreground">
+          Correo electrónico
+        </Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="admin@vehicleguard.local"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          className="h-11"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-sm font-medium text-foreground">
+          Contraseña
+        </Label>
+        <div className="relative">
+          <Input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="••••••••"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+            className="h-11 pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(v => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full h-12 text-base font-semibold gap-2"
+        disabled={loading || !email || !password}
+      >
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Shield className="w-4 h-4" />
+        )}
+        {loading ? "Verificando..." : "Iniciar Sesión"}
+        {!loading && <ChevronRight className="w-4 h-4 ml-auto" />}
+      </Button>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Modo local — Crea el usuario admin con <code className="bg-muted px-1 rounded">node seed-admin.mjs</code>
+      </p>
+    </form>
+  );
+}
 
 export default function Login() {
   const { isAuthenticated, loading } = useAuth();
@@ -73,7 +184,7 @@ export default function Login() {
               {
                 icon: Shield,
                 title: "Registro de Evidencia",
-                desc: "Almacenamiento permanente en S3 con trazabilidad completa",
+                desc: "Almacenamiento permanente con trazabilidad completa",
               },
               {
                 icon: Lock,
@@ -98,7 +209,7 @@ export default function Login() {
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-primary live-indicator" />
             <span className="text-xs text-muted-foreground font-mono">
-              Sistema operativo — 2 cámaras activas
+              {IS_LOCAL_AUTH ? "Modo local — Docker standalone" : "Sistema operativo — 2 cámaras activas"}
             </span>
           </div>
         </div>
@@ -120,51 +231,59 @@ export default function Login() {
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-foreground">Acceso al Sistema</h2>
             <p className="text-muted-foreground text-sm">
-              Ingresa con tu cuenta para acceder al panel de control de acceso vehicular.
+              {IS_LOCAL_AUTH
+                ? "Ingresa con tu email y contraseña de administrador."
+                : "Ingresa con tu cuenta para acceder al panel de control de acceso vehicular."}
             </p>
           </div>
 
           {/* Login card */}
           <div className="bg-card border border-border rounded-xl p-8 space-y-6">
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/10 border border-primary/20">
-              <Lock className="w-4 h-4 text-primary shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                Acceso protegido mediante autenticación segura. Solo personal autorizado.
-              </p>
-            </div>
-
-            <Button
-              className="w-full h-12 text-base font-semibold gap-2"
-              onClick={() => {
-                window.location.href = getLoginUrl();
-              }}
-            >
-              <Shield className="w-4 h-4" />
-              Iniciar Sesión
-              <ChevronRight className="w-4 h-4 ml-auto" />
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-card px-3 text-muted-foreground">Sistema de Seguridad Industrial</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 text-center">
-              {[
-                { label: "Cámaras", value: "2" },
-                { label: "Análisis IA", value: "LLM" },
-                { label: "Evidencia", value: "S3" },
-              ].map(({ label, value }) => (
-                <div key={label} className="p-3 rounded-lg bg-background border border-border">
-                  <p className="text-lg font-bold text-primary">{value}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+            {IS_LOCAL_AUTH ? (
+              <LocalLoginForm onSuccess={() => navigate("/dashboard")} />
+            ) : (
+              <>
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/10 border border-primary/20">
+                  <Lock className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-xs text-muted-foreground">
+                    Acceso protegido mediante autenticación segura. Solo personal autorizado.
+                  </p>
                 </div>
-              ))}
-            </div>
+
+                <Button
+                  className="w-full h-12 text-base font-semibold gap-2"
+                  onClick={() => {
+                    window.location.href = getLoginUrl();
+                  }}
+                >
+                  <Shield className="w-4 h-4" />
+                  Iniciar Sesión
+                  <ChevronRight className="w-4 h-4 ml-auto" />
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-card px-3 text-muted-foreground">Sistema de Seguridad Industrial</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  {[
+                    { label: "Cámaras", value: "2" },
+                    { label: "Análisis IA", value: "LLM" },
+                    { label: "Evidencia", value: "S3" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="p-3 rounded-lg bg-background border border-border">
+                      <p className="text-lg font-bold text-primary">{value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <p className="text-center text-xs text-muted-foreground">

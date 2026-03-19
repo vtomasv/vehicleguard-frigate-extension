@@ -1,16 +1,18 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# VehicleGuard — Docker Compose for local development
+# VehicleGuard — Docker Compose for local standalone deployment
 #
 # Services:
-#   app      → Node.js 22 server (Express + tRPC + Vite)
+#   app      → Node.js 22 server (Express + tRPC) — standalone auth (no Manus OAuth)
 #   db       → MySQL 8 database
+#   minio    → S3-compatible local object storage
 #   adminer  → Web-based DB admin UI (optional, port 8080)
 #
 # Quick start:
 #   1. cp .env.example .env
-#   2. Edit .env with your API keys
+#   2. Edit .env with your LLM API key (OpenAI, Anthropic, Gemini, or Ollama)
 #   3. docker compose up -d
-#   4. Open http://localhost:3000
+#   4. docker compose exec app node seed-admin.mjs   ← create admin user
+#   5. Open http://localhost:3000  and login with admin@vehicleguard.local / admin123
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -27,24 +29,30 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: mysql://vehicleguard:${DB_PASSWORD:-vehicleguard123}@db:3306/vehicleguard
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-a-long-random-string}
-      # Manus OAuth (required for authentication)
-      VITE_APP_ID: ${VITE_APP_ID:-}
-      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-https://api.manus.im}
-      VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-https://manus.im}
-      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
-      OWNER_NAME: ${OWNER_NAME:-admin}
-      # Manus Forge LLM (default, can be overridden via UI)
+
+      # ── Authentication (local mode — no Manus OAuth required) ───────────────
+      AUTH_MODE: local
+      VITE_AUTH_MODE: local
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-a-long-random-string-32chars}
+
+      # ── S3 Storage (MinIO local) ─────────────────────────────────────────────
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-vehicleguard}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin123}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_FORCE_PATH_STYLE: "true"
+
+      # ── LLM Provider (configure via UI at /settings/api, or set defaults here)
+      # Leave blank to use the built-in Manus Forge (requires BUILT_IN_FORGE_API_KEY)
+      # Or configure your own provider in the app UI after first login.
       BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL:-}
       BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY:-}
-      VITE_FRONTEND_FORGE_API_KEY: ${VITE_FRONTEND_FORGE_API_KEY:-}
-      VITE_FRONTEND_FORGE_API_URL: ${VITE_FRONTEND_FORGE_API_URL:-}
-      # S3 storage (MinIO or AWS)
-      S3_ENDPOINT: ${S3_ENDPOINT:-}
-      S3_BUCKET: ${S3_BUCKET:-vehicleguard}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
-      S3_REGION: ${S3_REGION:-us-east-1}
+
+      # ── Owner info (used in notifications) ──────────────────────────────────
+      OWNER_NAME: ${OWNER_NAME:-admin}
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-local-admin}
+
     depends_on:
       db:
         condition: service_healthy
@@ -78,20 +86,6 @@ services:
     networks:
       - vehicleguard-net
 
-  # ── Adminer (DB Admin UI) ────────────────────────────────────────────────────
-  adminer:
-    image: adminer:4
-    container_name: vehicleguard-adminer
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      ADMINER_DEFAULT_SERVER: db
-    depends_on:
-      - db
-    networks:
-      - vehicleguard-net
-
   # ── MinIO (S3-compatible local storage) ─────────────────────────────────────
   minio:
     image: minio/minio:latest
@@ -111,6 +105,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - vehicleguard-net
+
+  # ── Adminer (DB Admin UI) ────────────────────────────────────────────────────
+  adminer:
+    image: adminer:4
+    container_name: vehicleguard-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      - db
     networks:
       - vehicleguard-net
 

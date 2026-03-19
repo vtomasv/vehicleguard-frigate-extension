@@ -19,6 +19,8 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
+const IS_LOCAL_AUTH = import.meta.env.VITE_AUTH_MODE === "local";
+
 const navItems = [
   { href: "/dashboard", label: "Panel Principal", icon: LayoutDashboard },
   { href: "/cameras", label: "Cámaras", icon: Camera },
@@ -43,9 +45,23 @@ export default function AccessControlLayout({ children, title }: Props) {
     },
   });
 
+  const handleLogout = async () => {
+    if (IS_LOCAL_AUTH) {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      toast.success("Sesión cerrada correctamente");
+      navigate("/login");
+    } else {
+      logoutMutation.mutate();
+    }
+  };
+
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      window.location.href = getLoginUrl();
+      if (IS_LOCAL_AUTH) {
+        navigate("/login");
+      } else {
+        window.location.href = getLoginUrl();
+      }
     }
   }, [isAuthenticated, loading]);
 
@@ -143,7 +159,7 @@ export default function AccessControlLayout({ children, title }: Props) {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={() => logoutMutation.mutate()}
+            onClick={handleLogout}
             disabled={logoutMutation.isPending}
           >
             {logoutMutation.isPending ? (

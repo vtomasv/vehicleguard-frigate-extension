@@ -14,8 +14,10 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerLocalAuthRoutes } from "./localAuth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { createLocalContext } from "./localContext";
 import { serveStatic } from "./serve-static";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -50,15 +52,24 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  // OAuth callback under /api/oauth/callback
-  registerOAuthRoutes(app);
+  const isLocalAuth = process.env.AUTH_MODE === "local";
+
+  if (isLocalAuth) {
+    // Local auth: email/password login without Manus OAuth
+    registerLocalAuthRoutes(app);
+    console.log("[Auth] Running in LOCAL mode (email/password)");
+  } else {
+    // Manus OAuth callback
+    registerOAuthRoutes(app);
+    console.log("[Auth] Running in MANUS OAuth mode");
+  }
 
   // tRPC API
   app.use(
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
-      createContext,
+      createContext: isLocalAuth ? createLocalContext : createContext,
     })
   );
 
